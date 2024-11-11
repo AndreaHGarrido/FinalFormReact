@@ -36,3 +36,26 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* App.css */
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#72a7b4, #90acb3, #bdcaca, #fafcfc); /* Degradado de azul claro a azul oscuro */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.app-container {
+  width: 50vw;
+  height: 80vh;
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
