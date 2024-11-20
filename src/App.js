@@ -1,74 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { Form, Field } from 'react-final-form';
-import { Button, Select, MenuItem, FormControl, InputLabel, Typography } from '@mui/material';
+import { Button, FormControl, InputLabel, Input, Typography} from '@mui/material';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import { MaterialReactTable } from 'material-react-table'; 
+import InfoIcon from '@mui/icons-material/Info';
+import Table from './components/Table'; 
+import productSchema from './validations/zodValidations'; // Importa el esquema de validación
 
 // array de objetos/productos
 const itemsData = [
   { id: 1, name: "Manzanas", price: 12.5 },
-  { id: 2, name: "Plátanos", price: 8.5 },
+  { id: 2, name: "Suavitel", price: 28.5 },
   { id: 3, name: "Leche", price: 22.0 },
-  { id: 4, name: "Pan", price: 30.0 },
+  { id: 4, name: "Salchichas", price: 30.0 },
   { id: 5, name: "Huevos", price: 7.5 },
-  { id: 6, name: "Nuggets", price: 45.0 }
+  { id: 6, name: "Nuggets", price: 45.0 },
+  { id: 7, name: "Servitoallas", price: 45.0 }
 ];
 
 const App = () => {
   const [items, setItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCount, setSelectedCount] = useState("");
-  const [isCountEnabled, setIsCountEnabled] = useState(false);
   const [isAddEnabled, setIsAddEnabled] = useState(false);
+  const [showProductsPopup, setShowProductsPopup] = useState(false);
 
   const onSubmit = (values) => {
-    const selectedProduct = itemsData.find(item => item.id === Number(values.item));
-    if (selectedProduct) {
+    const selectedProductData = itemsData.find(item => item.name.toLowerCase() === values.item.toLowerCase());
+    if (selectedProductData) {
       const newProduct = {
-        id: selectedProduct.id,
-        name: selectedProduct.name,
-        price: selectedProduct.price,
+        id: selectedProductData.id,
+        name: selectedProductData.name,
+        price: selectedProductData.price,
         count: Number(values.count)
       };
       setItems(prevItems => {
         const existingItem = prevItems.find(item => item.id === newProduct.id);
         if (existingItem) {
-          // .map() para crear un nuevo array basado en prevItems
           return prevItems.map(item => 
-            item.id === newProduct.id // si el id del item actual es igual al id del newProduct
-              ? { ...item, count: item.count + newProduct.count } // sintaxis de "spread" para crear una copia del objeto item existente.
-              : item // devuelve el item sin cambios si no coincide
+            item.id === newProduct.id 
+              ? { ...item, count: item.count + newProduct.count }
+              : item 
           );
         }
-        // crea un nuevo array que incluye todos los elementos existentes en prevItems más el newProduct
         return [...prevItems, newProduct]; 
       });
       
-      // Resetea los campos cuando 
-      setSelectedProduct(null);
+      // Limpiar los campos después de agregar el producto
       setSelectedCount("");
-      setIsAddEnabled(false);
+      setSelectedProduct(null);
     }
   };
 
-  // Reduce en JavaScript permite reducir todos los elementos de un array a un único valor.
+  const validate = async (values) => {
+    try {
+      await productSchema.parseAsync(values);
+      return {}; // Si la validación es exitosa, devuelve un objeto vacío
+    } catch (error) {
+      return error.errors.reduce((acc, curr) => {
+        acc[curr.path[0]] = curr.message; // Mapea los errores a sus respectivos campos
+        return acc;
+      }, {});
+    }
+  };
+
   const total = items.reduce((acc, item) => acc + (item.price * item.count), 0);
 
+  // Efecto para habilitar el botón "Agregar"
   useEffect(() => {
-    if (selectedProduct) {
-      setIsCountEnabled(true); // Habilita el selector de cantidad
-      setSelectedCount(""); // Restablece el selector de cantidad
-    } else {
-      setIsCountEnabled(false); // Desactiva el selector de cantidad
-    }
-    setIsAddEnabled(false); // Desactiva el botón 
-  }, [selectedProduct]);
-  
-  // Activa el botón cuando ambos están seleccionados 
-  useEffect(() => {
-    setIsAddEnabled(Boolean(selectedProduct && selectedCount)); 
+    // El botón se habilita si hay un producto seleccionado y una cantidad válida
+    setIsAddEnabled(Boolean(selectedProduct && selectedCount && !isNaN(selectedCount) && Number(selectedCount) > 0)); 
   }, [selectedProduct, selectedCount]);
+
+  // Función para eliminar todos los productos y limpiar los campos
+  const handleClearAll = () => {
+    setItems([]); // Vaciar la tabla
+    setSelectedCount(""); // Limpiar el campo de cantidad
+    setSelectedProduct(null); // Limpiar el producto seleccionado
+  };
 
   return (
     <div className="app-container">
@@ -77,51 +86,39 @@ const App = () => {
       </Typography>
       <Form
         onSubmit={onSubmit}
+        validate={validate} // Agrega la función de validación aquí
         render={({ handleSubmit }) => (
           <form onSubmit={handleSubmit}>
             <FormControl style={{ marginRight: '20px', minWidth: 250 }}>
-              <InputLabel id="select-product-label">Selecciona un producto</InputLabel>
+              <InputLabel htmlFor="product-input">Nombre del producto</InputLabel>
               <Field name="item">
                 {({ input }) => (
-                  <Select 
-                    {...input} 
-                    labelId="select-product-label" 
-                    displayEmpty 
+                  <Input
+                    {...input}
+                    type="text"
                     onChange={(e) => {
                       input.onChange(e);
-                      setSelectedProduct(e.target.value);
+                      const productName = e.target.value;
+                      const product = itemsData.find(item => item.name.toLowerCase() === productName.toLowerCase());
+                      setSelectedProduct(product || null); // Actualiza el producto seleccionado
                     }}
-                  >
-                    {itemsData.map(item => (
-                      <MenuItem key={item.id} value={item.id}>
-                        {item.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
+                  />
                 )}
               </Field>
             </FormControl>
             <FormControl style={{ marginRight: '20px', minWidth: 250 }}>
-              <InputLabel id="select-count-label">Selecciona una cantidad</InputLabel>
+              <InputLabel htmlFor="count-input">Cantidad</InputLabel>
               <Field name="count">
                 {({ input }) => (
-                  <Select 
-                    {...input} 
-                    labelId="select-count-label" 
-                    displayEmpty 
-                    disabled={!isCountEnabled} // Disable hasta que el producto está seleccionado
-                    value={selectedCount} // Setea el valor al state de selectedCount
+                  <Input
+                    {...input}
+                    id="count-input"
+                    type="number"
                     onChange={(e) => {
                       input.onChange(e);
-                      setSelectedCount(e.target.value);
+                      setSelectedCount(e.target.value); // Actualiza la cantidad seleccionada
                     }}
-                  >
-                    {[1, 2, 3, 4, 5].map(count => (
-                      <MenuItem key={count} value={count}>
-                        {count}
-                      </MenuItem>
-                    ))}
-                  </Select>
+                  />
                 )}
               </Field>
             </FormControl>
@@ -132,19 +129,56 @@ const App = () => {
                 backgroundColor: isAddEnabled ? '' : 'gray', 
                 color: 'white'
               }}
-              disabled={!isAddEnabled} // boton inhabilitado hasta que ambos selects estén activos
+              disabled={!isAddEnabled}
             >
               Agregar
             </Button>
+
+            {/* Botón para eliminar todo */}
+            <Button 
+              variant="outlined" 
+              color="secondary" 
+              onClick={handleClearAll} 
+              style={{ marginLeft: '20px' }}
+            >
+              Eliminar Todo
+            </Button>
+
+            {/* Icono para mostrar la lista de productos */}
+            <div style={{ display: 'inline-block', marginLeft: '20px', position: 'relative' }}>
+              <InfoIcon 
+                onMouseEnter={() => setShowProductsPopup(true)} 
+                onMouseLeave={() => setShowProductsPopup(false)} 
+                style={{ cursor: 'pointer' }} 
+              />
+              {showProductsPopup && (
+                <div style={{
+                  position: 'absolute',
+                  backgroundColor: '#fff',
+                  border: '1px solid #ccc',
+                  padding: '10px',
+                  zIndex: 1000,
+                  boxShadow: '0px 0px 10px rgba(0,0,0,0.1)',
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }}>
+                  {itemsData.map(product => (
+                    <div key={product.id} style={{ marginBottom: '5px' }}>
+                      {product.name}: ${product.price.toFixed(2)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </form>
         )}
       />
 
-      {/* Usando Material React Table */}
-      <MaterialReactTable
+      {/* Usando el nuevo componente de tabla */}
+      <Table
         columns={[
           {
-            accessorKey: 'name', // clave del objeto que se mostrará en la columna
+            accessorKey: 'name',
             header: 'Producto',
             Cell: ({ cell }) => (
               <>
@@ -163,10 +197,7 @@ const App = () => {
             header: 'Cantidad',
           },
         ]}
-        data={items} // datos que se mostrarán en la tabla
-        enableColumnOrdering // habilita el ordenamiento de columnas
-        enableSorting // habilita el ordenamiento de filas
-        initialState={{ showGlobalFilter: true }} // muestra el filtro global por defecto
+        data={items}
       />
 
       <Typography 
